@@ -1,0 +1,3 @@
+@openzeppelin/=lib/openzeppelin-contracts/
+@conditional-tokens/=lib/conditional-tokens-contracts/contracts/
+@uma/=lib/protocol/packages/
