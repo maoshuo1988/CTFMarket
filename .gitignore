@@ -7,6 +7,12 @@ out/
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
+# ignore onchain broadcast artifacts (e.g. sepolia runs)
+/broadcast/*/11155111/
+
+# local network metadata (if you want to version it, remove this rule)
+/network/
+
 # Docs
 docs/
 
