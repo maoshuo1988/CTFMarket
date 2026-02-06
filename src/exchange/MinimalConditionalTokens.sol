@@ -20,6 +20,7 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
     error InvalidIndexSet();
     error InvalidPartition();
     error InvalidParentCollection();
+    error ZeroAmount();
 
     event ConditionPrepared(
         bytes32 indexed conditionId,
@@ -33,7 +34,8 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         address indexed oracle,
         bytes32 indexed questionId,
         uint256 outcomeSlotCount,
-        uint256[] payoutNumerators,
+        uint256 payoutYes,
+        uint256 payoutNo,
         uint256 payoutDenominator
     );
 
@@ -51,17 +53,28 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         uint256 payout
     );
 
+    /// @notice 轻量接口：用于替代 splitPosition 的 partition 数组，节省 calldata/memory。
+    /// @dev 0=FULL(YES+NO), 1=YES_ONLY, 2=NO_ONLY
+    enum SplitKind {
+        FULL,
+        YES_ONLY,
+        NO_ONLY
+    }
+
+    /// @notice 轻量接口：用于替代 redeemPositions 的 indexSets 数组，节省 calldata/memory。
+    /// @dev bit0=YES, bit1=NO；例如 1=YES, 2=NO, 3=YES+NO
+    type RedeemMask is uint8;
+
     struct Condition {
         bytes32 questionId;
         uint256 outcomeSlotCount;
         uint256 payoutDenominator; // 0 == unresolved
         uint256[2] payoutNumerators; // only 2 outcomes
-
-    /// @dev 本仓库套利用例模型需要的额外账本：
-    /// - collateralPool: 此 condition 下累计进入合约的抵押品总额
-    /// - totalShares[i]: outcome i 的累计铸造份额（YES=0, NO=1）
-    uint256 collateralPool;
-    uint256[2] totalShares;
+        /// @dev 本仓库套利用例模型需要的额外账本：
+        /// - collateralPool: 此 condition 下累计进入合约的抵押品总额
+        /// - totalShares[i]: outcome i 的累计铸造份额（YES=0, NO=1）
+        uint256 collateralPool;
+        uint256[2] totalShares;
     }
 
     mapping(bytes32 => Condition) public conditions;
@@ -74,12 +87,25 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         oracle = oracle_;
     }
 
+    function _calcPayout(
+        Condition storage c,
+        uint256 stake,
+        uint256 outcomeIndex
+    ) internal view returns (uint256) {
+        uint256 den = c.payoutDenominator;
+        uint256 sideTotal = c.totalShares[outcomeIndex];
+        require(sideTotal != 0, "empty side");
+        uint256 numerator = c.payoutNumerators[outcomeIndex];
+        return (stake * c.collateralPool * numerator) / (den * sideTotal);
+    }
+
     function getConditionId(
         address oracle_,
         bytes32 questionId,
         uint256 outcomeSlotCount
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(oracle_, questionId, outcomeSlotCount));
+        return
+            keccak256(abi.encodePacked(oracle_, questionId, outcomeSlotCount));
     }
 
     function getCollectionId(
@@ -87,32 +113,59 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         bytes32 conditionId,
         uint256 indexSet
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(parentCollectionId, conditionId, indexSet));
+        return
+            keccak256(
+                abi.encodePacked(parentCollectionId, conditionId, indexSet)
+            );
     }
 
-    function getPositionId(IERC20 collateralToken, bytes32 collectionId) public pure returns (uint256) {
-        return uint256(keccak256(abi.encodePacked(collateralToken, collectionId)));
+    function getPositionId(
+        IERC20 collateralToken,
+        bytes32 collectionId
+    ) public pure returns (uint256) {
+        return
+            uint256(keccak256(abi.encodePacked(collateralToken, collectionId)));
     }
 
-    function prepareCondition(address oracle_, bytes32 questionId, uint256 outcomeSlotCount) external {
+    function prepareCondition(
+        address oracle_,
+        bytes32 questionId,
+        uint256 outcomeSlotCount
+    ) external {
         if (outcomeSlotCount != 2) revert InvalidOutcomeSlotCount();
         if (oracle_ != oracle) revert WrongOracle();
 
-        bytes32 conditionId = getConditionId(oracle, questionId, outcomeSlotCount);
+        bytes32 conditionId = getConditionId(
+            oracle,
+            questionId,
+            outcomeSlotCount
+        );
         Condition storage c = conditions[conditionId];
         require(c.outcomeSlotCount == 0, "prepared");
 
         c.questionId = questionId;
         c.outcomeSlotCount = outcomeSlotCount;
 
-        emit ConditionPrepared(conditionId, oracle, questionId, outcomeSlotCount);
+        emit ConditionPrepared(
+            conditionId,
+            oracle,
+            questionId,
+            outcomeSlotCount
+        );
     }
 
-    function reportPayouts(bytes32 questionId, uint256[] calldata payouts) external {
+    function reportPayouts(
+        bytes32 questionId,
+        uint256[] calldata payouts
+    ) external {
         if (payouts.length != 2) revert InvalidOutcomeSlotCount();
         if (msg.sender != oracle) revert WrongOracle();
 
-        bytes32 conditionId = getConditionId(oracle, questionId, payouts.length);
+        bytes32 conditionId = getConditionId(
+            oracle,
+            questionId,
+            payouts.length
+        );
         Condition storage c = conditions[conditionId];
         if (c.outcomeSlotCount == 0) revert ConditionNotPrepared();
         if (c.payoutDenominator != 0) revert AlreadyResolved();
@@ -124,7 +177,15 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         c.payoutNumerators[1] = payouts[1];
         c.payoutDenominator = den;
 
-        emit ConditionResolved(conditionId, msg.sender, questionId, 2, payouts, den);
+        emit ConditionResolved(
+            conditionId,
+            msg.sender,
+            questionId,
+            2,
+            payouts[0],
+            payouts[1],
+            den
+        );
     }
 
     /// @notice 拆分抵押品为 YES/NO 头寸。
@@ -140,6 +201,7 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         uint256[] calldata partition,
         uint256 amount
     ) external {
+        if (amount == 0) revert ZeroAmount();
         if (parentCollectionId != bytes32(0)) revert InvalidParentCollection();
         Condition storage c = conditions[conditionId];
         if (c.outcomeSlotCount == 0) revert ConditionNotPrepared();
@@ -150,8 +212,7 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         bool mintNo = false;
 
         // 兼容两种“全头寸”写法：[1,2] 或 [1,1]
-        bool isFull =
-            (partition[0] == 1 && partition[1] == 2) ||
+        bool isFull = (partition[0] == 1 && partition[1] == 2) ||
             (partition[0] == 2 && partition[1] == 1) ||
             (partition[0] == 1 && partition[1] == 1);
 
@@ -166,18 +227,80 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
             revert InvalidPartition();
         }
 
-        require(collateralToken.transferFrom(msg.sender, address(this), amount), "collateral transfer failed");
+        require(
+            collateralToken.transferFrom(msg.sender, address(this), amount),
+            "collateral transfer failed"
+        );
 
-    // 记录抵押池规模
-    c.collateralPool += amount;
+        // 记录抵押池规模
+        c.collateralPool += amount;
 
         if (mintYes) {
-            uint256 yesId = getPositionId(collateralToken, getCollectionId(parentCollectionId, conditionId, 1));
+            uint256 yesId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, 1)
+            );
             _mint(msg.sender, yesId, amount, "");
             c.totalShares[0] += amount;
         }
         if (mintNo) {
-            uint256 noId = getPositionId(collateralToken, getCollectionId(parentCollectionId, conditionId, 2));
+            uint256 noId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, 2)
+            );
+            _mint(msg.sender, noId, amount, "");
+            c.totalShares[1] += amount;
+        }
+
+        emit PositionSplit(msg.sender, collateralToken, conditionId, amount);
+    }
+
+    /// @notice splitPosition 的轻量版：用枚举替代 uint256[] partition。
+    function splitPosition2(
+        IERC20 collateralToken,
+        bytes32 parentCollectionId,
+        bytes32 conditionId,
+        SplitKind kind,
+        uint256 amount
+    ) external {
+        if (amount == 0) revert ZeroAmount();
+        if (parentCollectionId != bytes32(0)) revert InvalidParentCollection();
+        Condition storage c = conditions[conditionId];
+        if (c.outcomeSlotCount == 0) revert ConditionNotPrepared();
+        if (c.outcomeSlotCount != 2) revert InvalidOutcomeSlotCount();
+
+        bool mintYes;
+        bool mintNo;
+        if (kind == SplitKind.FULL) {
+            mintYes = true;
+            mintNo = true;
+        } else if (kind == SplitKind.YES_ONLY) {
+            mintYes = true;
+        } else if (kind == SplitKind.NO_ONLY) {
+            mintNo = true;
+        } else {
+            revert InvalidPartition();
+        }
+
+        require(
+            collateralToken.transferFrom(msg.sender, address(this), amount),
+            "collateral transfer failed"
+        );
+        c.collateralPool += amount;
+
+        if (mintYes) {
+            uint256 yesId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, 1)
+            );
+            _mint(msg.sender, yesId, amount, "");
+            c.totalShares[0] += amount;
+        }
+        if (mintNo) {
+            uint256 noId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, 2)
+            );
             _mint(msg.sender, noId, amount, "");
             c.totalShares[1] += amount;
         }
@@ -193,6 +316,67 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         bytes32 conditionId,
         uint256[] calldata indexSets
     ) external {
+        if (indexSets.length == 0) return;
+        if (parentCollectionId != bytes32(0)) revert InvalidParentCollection();
+
+        Condition storage c = conditions[conditionId];
+        if (c.outcomeSlotCount == 0) revert ConditionNotPrepared();
+
+        uint256 den = c.payoutDenominator;
+        require(den != 0, "unresolved");
+
+        uint256 totalPayout = 0;
+
+        for (uint256 i = 0; i < indexSets.length; ) {
+            uint256 idx = indexSets[i];
+            if (idx != 1 && idx != 2) revert InvalidIndexSet();
+
+            uint256 outcomeIndex = idx == 1 ? 0 : 1;
+            uint256 positionId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, idx)
+            );
+            uint256 stake = balanceOf(msg.sender, positionId);
+            if (stake == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
+            _burn(msg.sender, positionId, stake);
+
+            // 按 docs/测试用例场景.md 的资金流模型：
+            // 总池 = collateralPool；胜者侧按 stake/totalShares[outcome] 比例分走总池（再乘以 payoutNumerator/den）。
+            totalPayout += _calcPayout(c, stake, outcomeIndex);
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (totalPayout > 0) {
+            require(
+                collateralToken.transfer(msg.sender, totalPayout),
+                "payout transfer failed"
+            );
+        }
+
+        emit PayoutRedemption(
+            msg.sender,
+            collateralToken,
+            conditionId,
+            totalPayout
+        );
+    }
+
+    /// @notice redeemPositions 的轻量版：用位掩码替代 uint256[] indexSets。
+    function redeemPositions2(
+        IERC20 collateralToken,
+        bytes32 parentCollectionId,
+        bytes32 conditionId,
+        RedeemMask mask
+    ) external {
         if (parentCollectionId != bytes32(0)) revert InvalidParentCollection();
 
         Condition storage c = conditions[conditionId];
@@ -200,29 +384,45 @@ contract MinimalConditionalTokens is ERC1155, Ownable {
         uint256 den = c.payoutDenominator;
         require(den != 0, "unresolved");
 
+        uint8 m = RedeemMask.unwrap(mask);
         uint256 totalPayout = 0;
-        for (uint256 i = 0; i < indexSets.length; i++) {
-            uint256 idx = indexSets[i];
-            if (idx != 1 && idx != 2) revert InvalidIndexSet();
 
-            uint256 outcomeIndex = idx == 1 ? 0 : 1;
-            uint256 positionId = getPositionId(collateralToken, getCollectionId(parentCollectionId, conditionId, idx));
-            uint256 stake = balanceOf(msg.sender, positionId);
-            if (stake == 0) continue;
-
-            _burn(msg.sender, positionId, stake);
-
-            // 按 docs/测试用例场景.md 的资金流模型：
-            // 总池 = collateralPool；胜者侧按 stake/totalShares[outcome] 比例分走总池（再乘以 payoutNumerator/den）。
-            uint256 sideTotal = c.totalShares[outcomeIndex];
-            require(sideTotal != 0, "empty side");
-            totalPayout += (stake * c.collateralPool * c.payoutNumerators[outcomeIndex]) / (den * sideTotal);
+        // YES
+        if (m & 0x01 != 0) {
+            uint256 yesId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, 1)
+            );
+            uint256 stakeYes = balanceOf(msg.sender, yesId);
+            if (stakeYes != 0) {
+                _burn(msg.sender, yesId, stakeYes);
+                totalPayout += _calcPayout(c, stakeYes, 0);
+            }
+        }
+        // NO
+        if (m & 0x02 != 0) {
+            uint256 noId = getPositionId(
+                collateralToken,
+                getCollectionId(parentCollectionId, conditionId, 2)
+            );
+            uint256 stakeNo = balanceOf(msg.sender, noId);
+            if (stakeNo != 0) {
+                _burn(msg.sender, noId, stakeNo);
+                totalPayout += _calcPayout(c, stakeNo, 1);
+            }
         }
 
         if (totalPayout > 0) {
-            require(collateralToken.transfer(msg.sender, totalPayout), "payout transfer failed");
+            require(
+                collateralToken.transfer(msg.sender, totalPayout),
+                "payout transfer failed"
+            );
         }
-
-        emit PayoutRedemption(msg.sender, collateralToken, conditionId, totalPayout);
+        emit PayoutRedemption(
+            msg.sender,
+            collateralToken,
+            conditionId,
+            totalPayout
+        );
     }
 }
