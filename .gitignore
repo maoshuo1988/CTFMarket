@@ -13,8 +13,8 @@ out/
 # local network metadata (if you want to version it, remove this rule)
 /network/
 
-# Docs
-docs/
+# Docs (legacy preview assets)
+doc/
 
 # Dotenv file
 .env

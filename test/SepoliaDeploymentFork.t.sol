@@ -63,6 +63,17 @@ contract SepoliaDeploymentForkTest is Test {
         );
     }
 
+    function setUp() external {
+        // 这个测试套件设计为 "fork-only"：
+        // - 需要通过 `forge test --fork-url <RPC_URL>` 运行
+        // - 否则 UNIFIED_MARKET 指向的地址在本地链没有代码，会导致测试失败
+        try vm.activeFork() returns (uint256) {
+            // ok
+        } catch {
+            vm.skip(true);
+        }
+    }
+
     function test_sepolia_unifiedMarket_isDeployedAndWired() external view {
         address marketAddr = vm.envAddress("UNIFIED_MARKET");
 

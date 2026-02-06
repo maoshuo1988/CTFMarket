@@ -142,3 +142,27 @@ sequenceDiagram
 ## 术语表
 
 CT----[ConditionalTokens](./docs/ConditionalTokens.md)
+
+## 项目结构
+
+```text
+CTFMarket/
+    src/                      # 核心合约源码
+        common/                 # 通用组件（如 ReentrancyGuard）
+        exchange/               # 交易/市场相关合约（UnifiedMarket、MinimalConditionalTokens 等）
+    script/                   # Foundry 脚本（部署/校验）
+        SepoliaDeployUnifiedMarket.s.sol    # Sepolia 一键部署脚本（方案B：自部署依赖）
+        SepoliaVerifyUnifiedMarket.s.sol    # Sepolia 只读校验脚本
+        SepoliaSmoke.s.sol                 # 简单冒烟部署脚本
+    scripts/                  # 辅助 shell 脚本
+        sepolia_deploy_and_verify.sh       # 一键：模拟 -> (可选广播) -> 校验
+    test/                     # Foundry 测试
+        ScenarioCases.t.sol              # 本地场景用例（MinimalConditionalTokens）
+        SepoliaDeploymentFork.t.sol      # sepolia fork 验收 + 场景复现
+    docs/                     # 项目文档（会加入代码仓）
+        ConditionalTokens.md
+        测试用例场景.md
+        经济模型解析.md
+    foundry.toml              # Foundry 配置（含 fs_permissions 等）
+    remappings.txt            # 依赖 remapping
+```
