@@ -166,3 +166,64 @@ CTFMarket/
     foundry.toml              # Foundry 配置（含 fs_permissions 等）
     remappings.txt            # 依赖 remapping
 ```
+
+## 本地开发：测试与脚本
+
+### 1) 运行本地单测（不需要 RPC）
+
+`ScenarioCases.t.sol` 对应 `docs/测试用例场景.md` 的三条用例，运行：
+
+```bash
+forge test
+```
+
+### 2) Sepolia：部署与校验（脚本）
+
+本仓库提供了 Sepolia 一键脚本：`scripts/sepolia_deploy_and_verify.sh`，会按顺序执行：
+
+1. 模拟部署（不发交易）
+2. （可选）广播部署（发交易，消耗 Sepolia ETH）
+3. 只读校验（从链上读取合约配置）
+
+#### 2.1 准备 `.env`
+
+在项目根目录创建/编辑 `.env`：
+
+```properties
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/...
+PRIVATE_KEY=0x...
+
+# 选填：校验用。如果你已经部署过，把 UnifiedMarket 地址写在这里
+UNIFIED_MARKET=0x...
+```
+
+注意：`PRIVATE_KEY` 必须带 `0x` 前缀，否则 `vm.envUint("PRIVATE_KEY")` 解析会失败。
+
+#### 2.2 只模拟（默认，不广播）
+
+```bash
+chmod +x scripts/sepolia_deploy_and_verify.sh
+./scripts/sepolia_deploy_and_verify.sh
+```
+
+#### 2.3 广播部署（会发交易）
+
+```bash
+BROADCAST=1 ./scripts/sepolia_deploy_and_verify.sh
+```
+
+广播成功后，终端会打印部署地址。把 `UnifiedMarket` 地址写回 `.env` 的 `UNIFIED_MARKET`，便于后续校验。
+
+### 3) Sepolia：fork 测试验收（复现文档用例）
+
+`test/SepoliaDeploymentFork.t.sol` 会在本地 fork sepolia：
+
+- 验收 `UNIFIED_MARKET` 是否真的部署成功（extcodesize + wiring）
+- 复现 `docs/测试用例场景.md` 的三条用例（忽略 gas 记账口径，只验证净资金流）
+
+运行方式：
+
+```bash
+set -a && source .env && set +a
+forge test --match-contract SepoliaDeploymentForkTest --fork-url "$RPC_URL" -vvv
+```
