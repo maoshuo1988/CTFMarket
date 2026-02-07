@@ -256,3 +256,10 @@ RPC_URL=https://eth-sepolia.g.alchemy.com/v2/...
 # 你已部署在 Sepolia 的 UnifiedMarket 地址（脚本部署后可以从 broadcast/run-latest.json 找到）
 UNIFIED_MARKET=0x...
 ```
+#### 最新测试网合约
+``` sh
+UNIFIED_MARKET=0xD9873c1A4b4C80773e025fabb88996eED49d978D
+MockERC20=0x3e3a6c0190dd91e0b5d0729cea8a92c22d7465d6
+MinimalConditionalTokens=0x4c9b403b3203a5a44ae62a92859e38dcbd3f783d
+UnifiedMarket=0xd9873c1a4b4c80773e025fabb88996eed49d978d
+```

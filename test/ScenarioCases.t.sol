@@ -28,17 +28,17 @@ contract ScenarioCases_Test is Test {
         ct = new MinimalConditionalTokens(oracle);
         usdc = new MockERC20("Mock USDC", "mUSDC");
 
-    yesOnly = new uint256[](2);
-    yesOnly[0] = 1;
-    yesOnly[1] = 0;
+        yesOnly = new uint256[](2);
+        yesOnly[0] = 1;
+        yesOnly[1] = 0;
 
-    noOnly = new uint256[](2);
-    noOnly[0] = 0;
-    noOnly[1] = 1;
+        noOnly = new uint256[](2);
+        noOnly[0] = 0;
+        noOnly[1] = 1;
 
-    full = new uint256[](2);
-    full[0] = 1;
-    full[1] = 2;
+        full = new uint256[](2);
+        full[0] = 1;
+        full[1] = 2;
 
         usdc.mint(A, 1000e6);
         usdc.mint(B, 1000e6);
@@ -69,12 +69,22 @@ contract ScenarioCases_Test is Test {
 
     function _redeemYes(bytes32 conditionId, address user) internal {
         vm.prank(user);
-    ct.redeemPositions2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.RedeemMask.wrap(1));
+        ct.redeemPositions2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.RedeemMask.wrap(1)
+        );
     }
 
     function _redeemNo(bytes32 conditionId, address user) internal {
         vm.prank(user);
-    ct.redeemPositions2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.RedeemMask.wrap(2));
+        ct.redeemPositions2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.RedeemMask.wrap(2)
+        );
     }
 
     /// @dev 用例#001：单人 YES，YES 胜 => 资金原路返回（不计 gas）。
@@ -84,7 +94,13 @@ contract ScenarioCases_Test is Test {
 
         uint256 beforeA = usdc.balanceOf(A);
         vm.prank(A);
-    ct.splitPosition2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.SplitKind.YES_ONLY, 1000e6);
+        ct.splitPosition2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.SplitKind.YES_ONLY,
+            1000e6
+        );
 
         _resolve(q, 1, 0); // YES wins
         _redeemYes(conditionId, A);
@@ -94,8 +110,14 @@ contract ScenarioCases_Test is Test {
         // 打印：用户结算后的总额（此用例只有 A）
         if (LOG) {
             console2.log("[case001] A final balance:", afterA);
-            console2.log("[case001] A net delta:", int256(afterA) - int256(beforeA));
-            console2.log("[case001] users total settlement (sum final balances):", afterA);
+            console2.log(
+                "[case001] A net delta:",
+                int256(afterA) - int256(beforeA)
+            );
+            console2.log(
+                "[case001] users total settlement (sum final balances):",
+                afterA
+            );
         }
         assertEq(afterA, beforeA);
     }
@@ -109,9 +131,21 @@ contract ScenarioCases_Test is Test {
         uint256 beforeB = usdc.balanceOf(B);
 
         vm.prank(A);
-    ct.splitPosition2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.SplitKind.YES_ONLY, 600e6);
+        ct.splitPosition2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.SplitKind.YES_ONLY,
+            600e6
+        );
         vm.prank(B);
-    ct.splitPosition2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.SplitKind.NO_ONLY, 400e6);
+        ct.splitPosition2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.SplitKind.NO_ONLY,
+            400e6
+        );
 
         _resolve(q, 1, 0); // YES wins
 
@@ -123,9 +157,18 @@ contract ScenarioCases_Test is Test {
         if (LOG) {
             console2.log("[case002] A final balance:", afterA);
             console2.log("[case002] B final balance:", afterB);
-            console2.log("[case002] A net delta:", int256(afterA) - int256(beforeA));
-            console2.log("[case002] B net delta:", int256(afterB) - int256(beforeB));
-            console2.log("[case002] users total settlement (sum final balances):", afterA + afterB);
+            console2.log(
+                "[case002] A net delta:",
+                int256(afterA) - int256(beforeA)
+            );
+            console2.log(
+                "[case002] B net delta:",
+                int256(afterB) - int256(beforeB)
+            );
+            console2.log(
+                "[case002] users total settlement (sum final balances):",
+                afterA + afterB
+            );
         }
 
         assertEq(afterA, beforeA + 400e6);
@@ -142,11 +185,29 @@ contract ScenarioCases_Test is Test {
         uint256 beforeC = usdc.balanceOf(C);
 
         vm.prank(A);
-    ct.splitPosition2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.SplitKind.YES_ONLY, 200e6);
+        ct.splitPosition2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.SplitKind.YES_ONLY,
+            200e6
+        );
         vm.prank(B);
-    ct.splitPosition2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.SplitKind.NO_ONLY, 300e6);
+        ct.splitPosition2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.SplitKind.NO_ONLY,
+            300e6
+        );
         vm.prank(C);
-    ct.splitPosition2(usdc, bytes32(0), conditionId, MinimalConditionalTokens.SplitKind.YES_ONLY, 250e6);
+        ct.splitPosition2(
+            usdc,
+            bytes32(0),
+            conditionId,
+            MinimalConditionalTokens.SplitKind.YES_ONLY,
+            250e6
+        );
 
         _resolve(q, 1, 0); // YES wins
 
@@ -161,10 +222,22 @@ contract ScenarioCases_Test is Test {
             console2.log("[case003] A final balance:", afterA);
             console2.log("[case003] B final balance:", afterB);
             console2.log("[case003] C final balance:", afterC);
-            console2.log("[case003] A net delta:", int256(afterA) - int256(beforeA));
-            console2.log("[case003] B net delta:", int256(afterB) - int256(beforeB));
-            console2.log("[case003] C net delta:", int256(afterC) - int256(beforeC));
-            console2.log("[case003] users total settlement (sum final balances):", afterA + afterB + afterC);
+            console2.log(
+                "[case003] A net delta:",
+                int256(afterA) - int256(beforeA)
+            );
+            console2.log(
+                "[case003] B net delta:",
+                int256(afterB) - int256(beforeB)
+            );
+            console2.log(
+                "[case003] C net delta:",
+                int256(afterC) - int256(beforeC)
+            );
+            console2.log(
+                "[case003] users total settlement (sum final balances):",
+                afterA + afterB + afterC
+            );
         }
 
         // 总池 = 750，YES 总份额 = 450
