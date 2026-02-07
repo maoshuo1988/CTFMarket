@@ -227,3 +227,32 @@ BROADCAST=1 ./scripts/sepolia_deploy_and_verify.sh
 set -a && source .env && set +a
 forge test --match-contract SepoliaDeploymentForkTest --fork-url "$RPC_URL" -vvv
 ```
+
+### 4) Sepolia：UMA 闭环用例（fork 测试，#001~#003）
+
+`test/UmaSepoliaClosedLoopFork.t.sol` 会在本地 fork Sepolia，执行 UMA OOV2 的闭环流程：
+
+- `requestPrice -> proposePrice -> settleAndGetPrice`
+- 将 settle 的结果“桥接”写入 `MinimalConditionalTokens.reportPayouts`
+- 最后 `redeemPositions` 并对 `USDC.balanceOf` 做断言
+
+注意：
+
+- 该测试只在 fork 模式运行（不带 `--fork-url` 会自动 skip）。
+- UMA OOV2 的 bond/finalFee 使用了 **Sepolia WETH**（UMA whitelist currency）作为 `currency`，而不是本项目的 `MockERC20`。
+
+运行方式：
+
+```bash
+set -a && source .env && set +a
+forge test --match-contract UmaSepoliaClosedLoopForkTest --fork-url "$RPC_URL" -vvv
+```
+
+#### 4.1 需要的 .env
+
+```properties
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/...
+
+# 你已部署在 Sepolia 的 UnifiedMarket 地址（脚本部署后可以从 broadcast/run-latest.json 找到）
+UNIFIED_MARKET=0x...
+```
