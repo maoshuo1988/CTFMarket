@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
 import {ReentrancyGuard} from "../common/ReentrancyGuard.sol";
 import {IConditionalTokens} from "./interfaces/IConditionalTokens.sol";
@@ -13,7 +14,7 @@ import {IConditionalTokens} from "./interfaces/IConditionalTokens.sol";
 /// - 结算赎回由用户直接调用 CT.redeemPositions 完成
 ///
 /// @dev 满足 README 的主流程表达，并避免“内部账本需要遍历用户统计总份额”的问题。
-contract UnifiedMarket is Ownable, ReentrancyGuard {
+contract UnifiedMarket is Ownable, ReentrancyGuard, ERC1155Holder {
     error MarketNotFound();
     error MarketResolved();
     error InvalidOutcome();

@@ -8,4 +8,11 @@ fs_permissions = [
 	{ access = "read", path = "./network" }
 ]
 
+# Named RPC endpoints. Keep in sync with repo root `.env`.
+# Usage examples:
+# - forge test --fork-url sepolia
+# - cast call <addr> <sig> --rpc-url sepolia
+[rpc_endpoints]
+sepolia = "${RPC_URL}"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

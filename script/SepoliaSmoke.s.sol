@@ -14,9 +14,9 @@ contract SepoliaSmoke is Script {
 
         // Sepolia 上 ConditionalTokens/Collateral/Oracle 需要你提供；这里用环境变量。
         // 注意：UnifiedMarket 构造函数要求这三个地址都非 0，否则会 revert。
-    address conditionalTokens = vm.envOr("CONDITIONAL_TOKENS", address(0));
-    address collateralToken = vm.envOr("COLLATERAL_TOKEN", address(0));
-    address oracle = vm.envOr("ORACLE", address(0));
+        address conditionalTokens = vm.envOr("CONDITIONAL_TOKENS", address(0));
+        address collateralToken = vm.envOr("COLLATERAL_TOKEN", address(0));
+        address oracle = vm.envOr("ORACLE", address(0));
 
         require(
             conditionalTokens != address(0) &&
@@ -28,14 +28,18 @@ contract SepoliaSmoke is Script {
         console2.log("chainid", block.chainid);
         console2.log("conditionalTokens", conditionalTokens);
         console2.log("collateralToken", collateralToken);
-    console2.log("oracle", oracle);
+        console2.log("oracle", oracle);
 
         vm.startBroadcast(pk);
 
-    UnifiedMarket market = new UnifiedMarket(conditionalTokens, collateralToken, oracle);
+        UnifiedMarket market = new UnifiedMarket(
+            conditionalTokens,
+            collateralToken,
+            oracle
+        );
 
         vm.stopBroadcast();
 
-    console2.log("deployed UnifiedMarket", address(market));
+        console2.log("deployed UnifiedMarket", address(market));
     }
 }

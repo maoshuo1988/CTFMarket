@@ -13,11 +13,17 @@ import {MockERC20} from "../src/exchange/MockERC20.sol";
 contract ExternalJsonReader {
     using stdJson for string;
 
-    function readString(string memory json, string memory path) external pure returns (string memory) {
+    function readString(
+        string memory json,
+        string memory path
+    ) external pure returns (string memory) {
         return json.readString(path);
     }
 
-    function readAddress(string memory json, string memory path) external pure returns (address) {
+    function readAddress(
+        string memory json,
+        string memory path
+    ) external pure returns (address) {
         return json.readAddress(path);
     }
 }
@@ -31,24 +37,35 @@ contract SepoliaDeployUnifiedMarket is Script {
 
     ExternalJsonReader private reader;
 
-    function _readOracleFromNetworkJson() internal view returns (address oracle) {
+    function _readOracleFromNetworkJson()
+        internal
+        view
+        returns (address oracle)
+    {
         // network/11155111.json 是一个对象数组：[{contractName,address}, ...]
-        string memory path = string.concat(vm.projectRoot(), "/network/11155111.json");
+        string memory path = string.concat(
+            vm.projectRoot(),
+            "/network/11155111.json"
+        );
         string memory json = vm.readFile(path);
 
         // 线性扫描数组，越界时 readString 会 revert；通过外部调用 reader 来 try/catch。
         for (uint256 i = 0; i < 256; i++) {
             string memory name;
-            try reader.readString(
-                json,
-                string.concat("$[", vm.toString(i), "].contractName")
-            ) returns (string memory v) {
+            try
+                reader.readString(
+                    json,
+                    string.concat("$[", vm.toString(i), "].contractName")
+                )
+            returns (string memory v) {
                 name = v;
             } catch {
                 break;
             }
 
-            if (keccak256(bytes(name)) == keccak256(bytes("OptimisticOracleV2"))) {
+            if (
+                keccak256(bytes(name)) == keccak256(bytes("OptimisticOracleV2"))
+            ) {
                 return
                     reader.readAddress(
                         json,
@@ -64,11 +81,11 @@ contract SepoliaDeployUnifiedMarket is Script {
         if (address(reader) == address(0)) {
             reader = new ExternalJsonReader();
         }
-    // IMPORTANT: 如果你的 .env PRIVATE_KEY 是 hex 字符串，必须带 0x 前缀，否则 envUint 会解析失败。
-    uint256 pk = vm.envUint("PRIVATE_KEY");
-    address deployer = vm.addr(pk);
-    address oracle = _readOracleFromNetworkJson();
-    require(oracle != address(0), "oracle=0");
+        // IMPORTANT: 如果你的 .env PRIVATE_KEY 是 hex 字符串，必须带 0x 前缀，否则 envUint 会解析失败。
+        uint256 pk = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(pk);
+        address oracle = _readOracleFromNetworkJson();
+        require(oracle != address(0), "oracle=0");
 
         console2.log("chainid", block.chainid);
         console2.log("deployer", deployer);
@@ -76,7 +93,9 @@ contract SepoliaDeployUnifiedMarket is Script {
 
         vm.startBroadcast(pk);
         MockERC20 collateralToken = new MockERC20("Mock USDC", "mUSDC");
-        MinimalConditionalTokens conditionalTokens = new MinimalConditionalTokens(oracle);
+        MinimalConditionalTokens conditionalTokens = new MinimalConditionalTokens(
+                oracle
+            );
         UnifiedMarket market = new UnifiedMarket(
             address(conditionalTokens),
             address(collateralToken),
@@ -84,7 +103,10 @@ contract SepoliaDeployUnifiedMarket is Script {
         );
         vm.stopBroadcast();
 
-        console2.log("deployed MockERC20(collateral)", address(collateralToken));
+        console2.log(
+            "deployed MockERC20(collateral)",
+            address(collateralToken)
+        );
         console2.log(
             "deployed MinimalConditionalTokens",
             address(conditionalTokens)
